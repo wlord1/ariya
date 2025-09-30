@@ -42,14 +42,6 @@
   .warn{ margin-top:8px; font-size:.95rem; text-align:center; display:none; }
   .card.danger .warn{ display:block; font-weight:700; }
 
-  /* Efficiency block */
-  .eff{ margin-top:12px; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; }
-  .card.danger .eff{ background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.25); }
-  .inline{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  .chip{ border:1px solid #cbd5e1; border-radius:999px; padding:6px 10px; background:#fff; font-weight:600; cursor:pointer; }
-  .chip:active{ transform:translateY(1px); }
-  .card.danger .chip{ background:#fff; color:#7f1d1d; }
-
   /* Desktop */
   @media (min-width:768px){ input[type="number"]{ max-width:140px; display:inline-block; } }
 
@@ -124,17 +116,6 @@
         <div class="warn" id="cap">Unable to make trip at 100%.</div>
       </div>
 
-      <!-- Efficiency control -->
-      <div class="eff">
-        <label for="eff">Planning efficiency (miles per 1%)</label>
-        <div class="inline">
-          <input type="number" id="eff" value="2.5" min="1.0" max="4.0" step="0.05" inputmode="decimal">
-          <button class="chip" data-eff="2.5" title="Observed">2.5 observed</button>
-          <button class="chip" data-eff="2.25" title="Conservative">2.25 conservative</button>
-        </div>
-        <div class="muted">Default 2.5. Use 2.25 for conservative planning.</div>
-      </div>
-
       <!-- Tic-Tac-Toe -->
       <div class="ttt">
         <h2>Tic-Tac-Toe</h2>
@@ -179,7 +160,9 @@
 
 <script>
 (function(){
-  // ===== Calculator with swap =====
+  // ===== Calculator with swap (EFF hard-locked to 2.25) =====
+  const EFF = 2.25; // conservative miles per 1%
+
   const miles  = document.getElementById('miles');
   const milesLabel = document.getElementById('milesLabel');
   const buffer = document.getElementById('buffer');
@@ -187,8 +170,6 @@
   const milesOut = document.getElementById('milesOut');
   const card   = document.getElementById('card');
   const cap    = document.getElementById('cap');
-  const effInp = document.getElementById('eff');
-  const chips  = document.querySelectorAll('.chip');
   const swapBtn= document.getElementById('swapBtn');
   const forwardText = document.getElementById('forwardText');
   const reverseText = document.getElementById('reverseText');
@@ -196,19 +177,16 @@
   const saved = JSON.parse(localStorage.getItem('ariyacalc') || '{}');
   if (saved.miles  != null) miles.value  = saved.miles;
   if (saved.buffer != null) buffer.value = saved.buffer; else buffer.value = 10;
-  if (saved.eff    != null) effInp.value = saved.eff;    else effInp.value = 2.5;
 
   let reverse = saved.mode === 'reverse';
   updateModeUI();
 
   function compute(){
     const buf = Number(buffer.value || 0);
-    const eff = Number(effInp.value || 2.5);
 
     localStorage.setItem('ariyacalc', JSON.stringify({
       miles: miles.value === "" ? "" : Number(miles.value),
       buffer: buf,
-      eff,
       mode: reverse ? 'reverse' : 'forward'
     }));
 
@@ -219,7 +197,7 @@
         card.classList.remove('danger'); cap.style.display = "none";
         return;
       }
-      let pct = (m + buf) / eff;
+      let pct = (m + buf) / EFF;
       pct = Math.ceil(pct);
       const exceeds = pct > 100;
       pctOut.textContent = pct + "%";
@@ -232,7 +210,7 @@
         card.classList.remove('danger'); cap.style.display = "none";
         return;
       }
-      const mOut = Math.max(0, Math.floor((p * eff) - buf));
+      const mOut = Math.max(0, Math.floor((p * EFF) - buf));
       milesOut.textContent = mOut;
       card.classList.remove('danger'); cap.style.display = "none";
     }
@@ -258,8 +236,7 @@
   }
 
   swapBtn.addEventListener('click', () => { reverse = !reverse; updateModeUI(); });
-  [miles, buffer, effInp].forEach(el => el.addEventListener('input', compute));
-  chips.forEach(btn => btn.addEventListener('click', () => { effInp.value = btn.dataset.eff; compute(); }));
+  [miles, buffer].forEach(el => el.addEventListener('input', compute));
   compute();
 
   // ===== Fireworks system =====
@@ -289,7 +266,7 @@
       fxParticles.push({
         x, y,
         vx: Math.cos(angle)*speed,
-        vy: Math.sin(angle)*speed - (Math.random()*1.0), // slight upward
+        vy: Math.sin(angle)*speed - (Math.random()*1.0),
         life: 60 + Math.random()*30,
         age: 0,
         r: 2 + Math.random()*2.5,
@@ -307,14 +284,9 @@
       const p = fxParticles[i];
       p.age++;
       if (p.age > p.life){ fxParticles.splice(i,1); continue; }
-      // physics
-      p.vy += 0.04;          // gravity
-      p.vx *= 0.99;          // drag
-      p.vy *= 0.99;
-      p.x += p.vx;
-      p.y += p.vy;
+      p.vy += 0.04; p.vx *= 0.99; p.vy *= 0.99;
+      p.x += p.vx; p.y += p.vy;
 
-      // fade
       const t = 1 - (p.age / p.life);
       fxCtx.globalAlpha = Math.max(0, t);
       fxCtx.beginPath();
@@ -325,17 +297,13 @@
     }
 
     if (Date.now() > fxEndTime && fxParticles.length === 0){
-      fxActive = false;
-      fxCanvas.style.display = 'none';
-      fxRAF = null;
-      return;
+      fxActive = false; fxCanvas.style.display = 'none'; fxRAF = null; return;
     }
     fxRAF = requestAnimationFrame(fxLoop);
   }
 
-  // Public trigger
   function launchFireworks(anchorEl){
-    if (mqlReduce.matches) return; // respect reduced motion
+    if (mqlReduce.matches) return;
     try{ if (navigator.vibrate) navigator.vibrate(60); }catch(e){}
     fxResize();
     const rect = anchorEl ? anchorEl.getBoundingClientRect() : {left:0, top:0, width:fxW, height:fxH};
@@ -346,17 +314,16 @@
       ['#1e90ff','#70a1ff','#2ed573','#7bed9f'],
       ['#a55eea','#fd79a8','#e84393','#fab1a0']
     ];
-    // three bursts: center + offsets
     spawnBurst(cx, cy, palettes[0]);
     spawnBurst(cx - 80, cy - 60, palettes[1]);
     spawnBurst(cx + 90, cy - 90, palettes[2]);
 
     fxActive = true;
-    fxEndTime = Date.now() + 2000; // run ~2s
+    fxEndTime = Date.now() + 2000;
     if (!fxRAF) fxLoop();
   }
 
-  // ===== Tic-Tac-Toe with difficulty =====
+  // ===== Tic-Tac-Toe with difficulty & fireworks =====
   const boardEl  = document.getElementById('board');
   const statusEl = document.getElementById('ttt-status');
   const newBtn   = document.getElementById('ttt-new');
@@ -458,9 +425,7 @@
       statusEl.textContent = `${w.player} wins!`;
       gameOver = true;
       renderBoard();
-
-      // Fireworks on win (anchor to the board area)
-      launchFireworks(boardEl);
+      launchFireworks(boardEl); // celebrate!
       return;
     }
     if (empties(board).length === 0){
@@ -487,9 +452,9 @@
     renderBoard();
   }
 
-  document.getElementById('ttt-new').addEventListener('click', resetGame);
-  document.getElementById('ttt-vsai').addEventListener('change', resetGame);
-  document.getElementById('ttt-diff').addEventListener('change', resetGame);
+  newBtn.addEventListener('click', resetGame);
+  vsAi.addEventListener('change', resetGame);
+  diffSel.addEventListener('change', resetGame);
   renderBoard();
 
   // ===== Doodle Pad =====
