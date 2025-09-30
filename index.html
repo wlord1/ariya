@@ -15,18 +15,12 @@
   html { -webkit-text-size-adjust: 100%; }
   body { font-family: var(--font); margin:0; padding:0; background:#f6f7f9; color:#0f172a; }
   .wrap { max-width:680px; margin:40px auto; padding:0 var(--pad); }
-  .card { background:#fff; border-radius:var(--radius); box-shadow:0 1px 3px rgba(0,0,0,.08),0 10px 24px rgba(0,0,0,.06); padding:calc(var(--pad)*1.25); transition:background .2s,color .2s,border-color .2s; }
+  .card { position:relative; background:#fff; border-radius:var(--radius); box-shadow:0 1px 3px rgba(0,0,0,.08),0 10px 24px rgba(0,0,0,.06); padding:calc(var(--pad)*1.25); transition:background .2s,color .2s,border-color .2s; }
   .card.danger { background:#b91c1c; color:#fff; }
   h1 { font-size:1.25rem; margin:0; }
 
-  .topbar {
-    display: flex;
-    justify-content: flex-start; /* left align the swap button */
-    margin: 6px 0 12px;
-  }
-  .btn {
-    border:1px solid #cbd5e1; background:#fff; padding:8px 12px; border-radius:10px; font-weight:600; cursor:pointer;
-  }
+  .topbar { display:flex; justify-content:flex-start; margin:6px 0 12px; }
+  .btn { border:1px solid #cbd5e1; background:#fff; padding:8px 12px; border-radius:10px; font-weight:600; cursor:pointer; }
   .btn:active { transform: translateY(1px); }
 
   .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin:10px 0 6px; }
@@ -56,7 +50,7 @@
   .chip:active{ transform:translateY(1px); }
   .card.danger .chip{ background:#fff; color:#7f1d1d; }
 
-  /* Desktop: keep inputs compact */
+  /* Desktop */
   @media (min-width:768px){ input[type="number"]{ max-width:140px; display:inline-block; } }
 
   /* Tic-Tac-Toe */
@@ -65,14 +59,10 @@
   .ttt h2 { margin:0 0 6px; font-size:1rem; }
   .ttt .note { margin:0 0 10px; font-size:.9rem; color:#475569; }
   .card.danger .ttt .note { color:#fde68a; }
-  .board {
-    display:grid; grid-template-columns:repeat(3, 64px); grid-template-rows:repeat(3, 64px);
-    gap:6px; justify-content:center; margin:10px 0;
-  }
+  .board { display:grid; grid-template-columns:repeat(3, 64px); grid-template-rows:repeat(3, 64px); gap:6px; justify-content:center; margin:10px 0; }
   .cell {
     width:64px; height:64px; border:1px solid #cbd5e1; border-radius:10px; background:#fff;
-    font-size:1.5rem; font-weight:800; color:#111; /* darker X/O */
-    display:flex; align-items:center; justify-content:center;
+    font-size:1.5rem; font-weight:800; color:#111; display:flex; align-items:center; justify-content:center;
     cursor:pointer; user-select:none;
   }
   .cell:active { transform: translateY(1px); }
@@ -80,10 +70,8 @@
   .ttt-controls { display:flex; gap:10px; justify-content:center; align-items:center; margin-top:6px; flex-wrap:wrap; }
   .status { text-align:center; margin-top:6px; font-weight:600; }
 
-  /* Select visibility fix (iOS) */
-  select {
-    padding:6px 8px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; color:#111; font-size:0.9rem;
-  }
+  /* Select visibility fix */
+  select { padding:6px 8px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; color:#111; font-size:0.9rem; }
   .card.danger select { background:#fff; color:#111; }
 
   /* Doodle Pad */
@@ -96,9 +84,20 @@
   .doodle-controls input[type="color"], .doodle-controls input[type="range"] { cursor:pointer; }
   .doodle-canvas-wrap { display:flex; justify-content:center; }
   canvas { background:#fff; border:1px solid #e2e8f0; border-radius:10px; touch-action:none; }
+
+  /* Fireworks canvas overlay */
+  .fx-canvas {
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 9999; display: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .fx-canvas { display:none !important; }
+  }
 </style>
 </head>
 <body>
+  <canvas id="fx" class="fx-canvas"></canvas>
+
   <div class="wrap">
     <div class="card" id="card">
       <h1>Ariya Charge % Calculator</h1>
@@ -194,20 +193,18 @@
   const forwardText = document.getElementById('forwardText');
   const reverseText = document.getElementById('reverseText');
 
-  // Restore saved values or defaults
   const saved = JSON.parse(localStorage.getItem('ariyacalc') || '{}');
-  if (saved.miles  != null) miles.value  = saved.miles; // else blank
+  if (saved.miles  != null) miles.value  = saved.miles;
   if (saved.buffer != null) buffer.value = saved.buffer; else buffer.value = 10;
   if (saved.eff    != null) effInp.value = saved.eff;    else effInp.value = 2.5;
 
-  let reverse = saved.mode === 'reverse'; // false = Miles→%, true = %→Miles
+  let reverse = saved.mode === 'reverse';
   updateModeUI();
 
   function compute(){
     const buf = Number(buffer.value || 0);
     const eff = Number(effInp.value || 2.5);
 
-    // Persist common stuff
     localStorage.setItem('ariyacalc', JSON.stringify({
       miles: miles.value === "" ? "" : Number(miles.value),
       buffer: buf,
@@ -216,7 +213,6 @@
     }));
 
     if (!reverse){
-      // FORWARD: miles -> %
       const m = (miles.value === "" ? NaN : Number(miles.value));
       if (isNaN(m)) {
         pctOut.textContent = "--%";
@@ -226,12 +222,10 @@
       let pct = (m + buf) / eff;
       pct = Math.ceil(pct);
       const exceeds = pct > 100;
-      // Keep % visible even above 100 (no clamp)
       pctOut.textContent = pct + "%";
       if (exceeds) { card.classList.add('danger'); cap.style.display = "block"; }
       else { card.classList.remove('danger'); cap.style.display = "none"; }
     } else {
-      // REVERSE: % -> miles
       const p = (miles.value === "" ? NaN : Number(miles.value));
       if (isNaN(p)) {
         milesOut.textContent = "--";
@@ -240,14 +234,12 @@
       }
       const mOut = Math.max(0, Math.floor((p * eff) - buf));
       milesOut.textContent = mOut;
-      // No danger styling/warning in reverse mode
       card.classList.remove('danger'); cap.style.display = "none";
     }
   }
 
   function updateModeUI(){
     if (!reverse){
-      // Miles → %
       swapBtn.textContent = "Swap: miles → %";
       swapBtn.setAttribute('aria-pressed', 'false');
       milesLabel.textContent = "Trip distance (miles)";
@@ -255,7 +247,6 @@
       forwardText.style.display = "";
       reverseText.style.display = "none";
     } else {
-      // % → Miles
       swapBtn.textContent = "Swap: % → miles";
       swapBtn.setAttribute('aria-pressed', 'true');
       milesLabel.textContent = "Charge % available";
@@ -266,14 +257,104 @@
     compute();
   }
 
-  swapBtn.addEventListener('click', () => {
-    reverse = !reverse;
-    updateModeUI();
-  });
-
+  swapBtn.addEventListener('click', () => { reverse = !reverse; updateModeUI(); });
   [miles, buffer, effInp].forEach(el => el.addEventListener('input', compute));
   chips.forEach(btn => btn.addEventListener('click', () => { effInp.value = btn.dataset.eff; compute(); }));
   compute();
+
+  // ===== Fireworks system =====
+  const fxCanvas = document.getElementById('fx');
+  const mqlReduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let fxCtx, fxW, fxH, fxRAF = null, fxParticles = [], fxActive = false, fxEndTime = 0;
+
+  function fxResize(){
+    if (!fxCanvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    fxCanvas.width = Math.floor(window.innerWidth * dpr);
+    fxCanvas.height = Math.floor(window.innerHeight * dpr);
+    fxCanvas.style.width = window.innerWidth + 'px';
+    fxCanvas.style.height = window.innerHeight + 'px';
+    fxCtx = fxCanvas.getContext('2d');
+    fxCtx.setTransform(dpr,0,0,dpr,0,0);
+    fxW = window.innerWidth; fxH = window.innerHeight;
+  }
+  window.addEventListener('resize', fxResize);
+  fxResize();
+
+  function spawnBurst(x, y, colors){
+    const count = 80;
+    for (let i=0;i<count;i++){
+      const angle = (Math.PI * 2) * (i / count) + (Math.random()*0.2);
+      const speed = 2 + Math.random()*3.5;
+      fxParticles.push({
+        x, y,
+        vx: Math.cos(angle)*speed,
+        vy: Math.sin(angle)*speed - (Math.random()*1.0), // slight upward
+        life: 60 + Math.random()*30,
+        age: 0,
+        r: 2 + Math.random()*2.5,
+        color: colors[i % colors.length]
+      });
+    }
+  }
+
+  function fxLoop(){
+    if (!fxActive){ fxCanvas.style.display = 'none'; return; }
+    fxCanvas.style.display = 'block';
+    fxCtx.clearRect(0,0,fxW,fxH);
+
+    for (let i=fxParticles.length-1;i>=0;i--){
+      const p = fxParticles[i];
+      p.age++;
+      if (p.age > p.life){ fxParticles.splice(i,1); continue; }
+      // physics
+      p.vy += 0.04;          // gravity
+      p.vx *= 0.99;          // drag
+      p.vy *= 0.99;
+      p.x += p.vx;
+      p.y += p.vy;
+
+      // fade
+      const t = 1 - (p.age / p.life);
+      fxCtx.globalAlpha = Math.max(0, t);
+      fxCtx.beginPath();
+      fxCtx.fillStyle = p.color;
+      fxCtx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      fxCtx.fill();
+      fxCtx.globalAlpha = 1;
+    }
+
+    if (Date.now() > fxEndTime && fxParticles.length === 0){
+      fxActive = false;
+      fxCanvas.style.display = 'none';
+      fxRAF = null;
+      return;
+    }
+    fxRAF = requestAnimationFrame(fxLoop);
+  }
+
+  // Public trigger
+  function launchFireworks(anchorEl){
+    if (mqlReduce.matches) return; // respect reduced motion
+    try{ if (navigator.vibrate) navigator.vibrate(60); }catch(e){}
+    fxResize();
+    const rect = anchorEl ? anchorEl.getBoundingClientRect() : {left:0, top:0, width:fxW, height:fxH};
+    const cx = rect.left + rect.width/2;
+    const cy = rect.top + rect.height/2 + window.scrollY;
+    const palettes = [
+      ['#ff4757','#ffa502','#ff6b81','#ffdd59'],
+      ['#1e90ff','#70a1ff','#2ed573','#7bed9f'],
+      ['#a55eea','#fd79a8','#e84393','#fab1a0']
+    ];
+    // three bursts: center + offsets
+    spawnBurst(cx, cy, palettes[0]);
+    spawnBurst(cx - 80, cy - 60, palettes[1]);
+    spawnBurst(cx + 90, cy - 90, palettes[2]);
+
+    fxActive = true;
+    fxEndTime = Date.now() + 2000; // run ~2s
+    if (!fxRAF) fxLoop();
+  }
 
   // ===== Tic-Tac-Toe with difficulty =====
   const boardEl  = document.getElementById('board');
@@ -307,18 +388,17 @@
 
   function winner(b){
     for (const [a,c,d] of lines){
-      if (b[a] && b[a] === b[c] && b[a] === b[d]) return b[a];
+      if (b[a] && b[a] === b[c] && b[a] === b[d]) return {player:b[a], line:[a,c,d]};
     }
     return null;
   }
 
   function empties(b){ return b.map((v,i)=>v?null:i).filter(i=>i!==null); }
 
-  // Minimax for perfect play (AI = 'O', human = 'X')
   function minimax(b, player){
     const w = winner(b);
-    if (w === 'O') return {score: +1};
-    if (w === 'X') return {score: -1};
+    if (w && w.player === 'O') return {score: +1};
+    if (w && w.player === 'X') return {score: -1};
     if (empties(b).length === 0) return {score: 0};
 
     if (player === 'O'){
@@ -340,14 +420,11 @@
     }
   }
 
-  // Heuristic (fast) move: win -> block -> center -> corner -> random
   function heuristicMove(){
     const me='O', opp='X';
     const e = empties(board);
-    // win
-    for (const i of e){ const t=board.slice(); t[i]=me; if (winner(t)===me) return i; }
-    // block
-    for (const i of e){ const t=board.slice(); t[i]=opp; if (winner(t)===opp) return i; }
+    for (const i of e){ const t=board.slice(); t[i]=me; if ((winner(t)||{}).player===me) return i; }
+    for (const i of e){ const t=board.slice(); t[i]=opp; if ((winner(t)||{}).player===opp) return i; }
     if (board[4]==null) return 4;
     const corners=[0,2,6,8].filter(i=>board[i]==null);
     if (corners.length) return corners[Math.floor(Math.random()*corners.length)];
@@ -355,21 +432,18 @@
   }
 
   function aiMove(){
-    const difficulty = diffSel.value; // easy|normal|hard|unbeatable
+    const difficulty = diffSel.value;
     const e = empties(board);
     if (e.length===0) return;
 
-    // Blunder rates by difficulty
     const blunderRates = { easy: 0.5, normal: 0.2, hard: 0.05, unbeatable: 0 };
     const blunder = Math.random() < blunderRates[difficulty];
 
     let moveIndex;
     if (difficulty === 'unbeatable' || !blunder){
-      // perfect move
       moveIndex = minimax(board, 'O').move;
       if (moveIndex == null) moveIndex = heuristicMove();
     } else {
-      // blunder: random legal move
       moveIndex = e[Math.floor(Math.random()*e.length)];
     }
     if (moveIndex != null) move(moveIndex);
@@ -378,14 +452,30 @@
   function move(i){
     if (gameOver || board[i]) return;
     board[i] = turn;
+
     const w = winner(board);
-    if (w){ statusEl.textContent = `${w} wins!`; gameOver = true; renderBoard(); return; }
-    if (empties(board).length === 0){ statusEl.textContent = `It's a draw.`; gameOver = true; renderBoard(); return; }
+    if (w){
+      statusEl.textContent = `${w.player} wins!`;
+      gameOver = true;
+      renderBoard();
+
+      // Fireworks on win (anchor to the board area)
+      launchFireworks(boardEl);
+      return;
+    }
+    if (empties(board).length === 0){
+      statusEl.textContent = `It's a draw.`;
+      gameOver = true;
+      renderBoard();
+      return;
+    }
+
     turn = (turn === 'X') ? 'O' : 'X';
     statusEl.textContent = `${turn} to move`;
     renderBoard();
+
     if (!gameOver && vsAi.checked && turn === 'O'){
-      setTimeout(aiMove, 220); // small delay feels natural
+      setTimeout(aiMove, 220);
     }
   }
 
@@ -397,9 +487,9 @@
     renderBoard();
   }
 
-  newBtn.addEventListener('click', resetGame);
-  vsAi.addEventListener('change', resetGame);
-  diffSel.addEventListener('change', resetGame);
+  document.getElementById('ttt-new').addEventListener('click', resetGame);
+  document.getElementById('ttt-vsai').addEventListener('change', resetGame);
+  document.getElementById('ttt-diff').addEventListener('change', resetGame);
   renderBoard();
 
   // ===== Doodle Pad =====
@@ -411,26 +501,21 @@
   const clearBtn = document.getElementById('clearDraw');
   const saveBtn  = document.getElementById('saveDraw');
 
-  // HiDPI scaling for crisp lines
   function resizeCanvasForDPR(){
     const dpr = window.devicePixelRatio || 1;
     const cssW = canvas.clientWidth || 320;
     const cssH = canvas.clientHeight || 240;
     canvas.width  = Math.round(cssW * dpr);
     canvas.height = Math.round(cssH * dpr);
-    ctx.scale(dpr, dpr);
-    // white background
+    ctx.setTransform(dpr,0,0,dpr,0,0);
     ctx.fillStyle = '#fff';
     ctx.fillRect(0,0,cssW,cssH);
   }
-  // Ensure CSS size matches attributes initially
   canvas.style.width = canvas.width + 'px';
   canvas.style.height = canvas.height + 'px';
   resizeCanvasForDPR();
 
-  let drawing = false;
-  let last = null;
-  let history = []; // stack of ImageData
+  let drawing = false, last = null, history = [];
   const MAX_HISTORY = 20;
 
   function pushHistory(){
@@ -438,41 +523,25 @@
       const img = ctx.getImageData(0,0,canvas.width,canvas.height);
       history.push(img);
       if (history.length > MAX_HISTORY) history.shift();
-    }catch(e){ /* ignore */ }
+    }catch(e){}
   }
-
-  function startDraw(pt){
-    pushHistory();
-    drawing = true;
-    last = pt;
-    drawTo(pt); // dot
-  }
+  function startDraw(pt){ pushHistory(); drawing = true; last = pt; drawTo(pt); }
   function endDraw(){ drawing = false; last = null; }
   function drawTo(pt){
     if (!last){ last = pt; }
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = colorInp.value;
-    ctx.lineWidth = Number(sizeInp.value);
-    ctx.beginPath();
-    ctx.moveTo(last.x, last.y);
-    ctx.lineTo(pt.x, pt.y);
-    ctx.stroke();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = colorInp.value; ctx.lineWidth = Number(sizeInp.value);
+    ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(pt.x, pt.y); ctx.stroke();
     last = pt;
   }
   function getPoint(e){
-    const rect = canvas.getBoundingClientRect();
-    if (e.touches && e.touches[0]){
-      return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
-    } else {
-      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    }
+    const r = canvas.getBoundingClientRect();
+    if (e.touches && e.touches[0]) return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
   }
-  // Mouse
   canvas.addEventListener('mousedown', e => { startDraw(getPoint(e)); });
   canvas.addEventListener('mousemove', e => { if(drawing) drawTo(getPoint(e)); });
   window.addEventListener('mouseup', endDraw);
-  // Touch
   canvas.addEventListener('touchstart', e => { e.preventDefault(); startDraw(getPoint(e)); }, {passive:false});
   canvas.addEventListener('touchmove',  e => { e.preventDefault(); if(drawing) drawTo(getPoint(e)); }, {passive:false});
   canvas.addEventListener('touchend',   e => { e.preventDefault(); endDraw(); }, {passive:false});
@@ -490,8 +559,7 @@
     const dpr = window.devicePixelRatio || 1;
     ctx.setTransform(1,0,0,1,0,0);
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = '#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
     ctx.setTransform(dpr,0,0,dpr,0,0);
   });
   saveBtn.addEventListener('click', () => {
@@ -503,7 +571,6 @@
     ctx.setTransform(dpr,0,0,dpr,0,0);
     link.click();
   });
-
   window.addEventListener('orientationchange', () => setTimeout(resizeCanvasForDPR, 250));
 })();
 </script>
