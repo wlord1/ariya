@@ -17,9 +17,13 @@
   .wrap { max-width:680px; margin:40px auto; padding:0 var(--pad); }
   .card { background:#fff; border-radius:var(--radius); box-shadow:0 1px 3px rgba(0,0,0,.08),0 10px 24px rgba(0,0,0,.06); padding:calc(var(--pad)*1.25); transition:background .2s,color .2s,border-color .2s; }
   .card.danger { background:#b91c1c; color:#fff; }
-  h1 { font-size:1.25rem; margin:0 0 12px; }
+  h1 { font-size:1.25rem; margin:0; }
 
-  .topbar { display:flex; justify-content:flex-end; }
+  .topbar {
+    display: flex;
+    justify-content: flex-start; /* left align the swap button */
+    margin: 6px 0 12px;
+  }
   .btn {
     border:1px solid #cbd5e1; background:#fff; padding:8px 12px; border-radius:10px; font-weight:600; cursor:pointer;
   }
@@ -54,42 +58,6 @@
 
   /* Desktop: keep inputs compact */
   @media (min-width:768px){ input[type="number"]{ max-width:140px; display:inline-block; } }
-
-  /* Tic-Tac-Toe */
-  .ttt { margin-top:16px; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; }
-  .card.danger .ttt { background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.25); }
-  .ttt h2 { margin:0 0 6px; font-size:1rem; }
-  .ttt .note { margin:0 0 10px; font-size:.9rem; color:#475569; }
-  .card.danger .ttt .note { color:#fde68a; }
-  .board {
-    display:grid; grid-template-columns:repeat(3, 64px); grid-template-rows:repeat(3, 64px);
-    gap:6px; justify-content:center; margin:10px 0;
-  }
-  .cell {
-    width:64px; height:64px; border:1px solid #cbd5e1; border-radius:10px; background:#fff;
-    font-size:1.5rem; font-weight:800; color:#111;
-    display:flex; align-items:center; justify-content:center;
-    cursor:pointer; user-select:none;
-  }
-  .cell:active { transform: translateY(1px); }
-  .card.danger .cell { background:#fff; color:#111; }
-  .ttt-controls { display:flex; gap:10px; justify-content:center; align-items:center; margin-top:6px; flex-wrap:wrap; }
-  .status { text-align:center; margin-top:6px; font-weight:600; }
-  select {
-    padding:6px 8px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; color:#111; font-size:0.9rem;
-  }
-  .card.danger select { background:#fff; color:#111; }
-
-  /* Doodle Pad */
-  .doodle { margin-top:16px; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; }
-  .card.danger .doodle { background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.25); }
-  .doodle h2 { margin:0 0 6px; font-size:1rem; }
-  .doodle .note { margin:0 0 10px; font-size:.9rem; color:#475569; }
-  .card.danger .doodle .note { color:#fde68a; }
-  .doodle-controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:center; margin-bottom:8px; }
-  .doodle-controls input[type="color"], .doodle-controls input[type="range"] { cursor:pointer; }
-  .doodle-canvas-wrap { display:flex; justify-content:center; }
-  canvas { background:#fff; border:1px solid #e2e8f0; border-radius:10px; touch-action:none; }
 </style>
 </head>
 <body>
@@ -129,52 +97,11 @@
         </div>
         <div class="muted">Default 2.5. Use 2.25 for conservative planning.</div>
       </div>
-
-      <!-- Tic-Tac-Toe -->
-      <div class="ttt">
-        <h2>Tic-Tac-Toe</h2>
-        <div class="note">Play tic-tac-toe while charging if you’re bored.</div>
-        <div class="board" id="board" aria-label="Tic Tac Toe board"></div>
-        <div class="status" id="ttt-status">X to move</div>
-        <div class="ttt-controls">
-          <button class="btn" id="ttt-new">New Game</button>
-          <label class="inline" style="gap:6px;">
-            <input type="checkbox" id="ttt-vsai" checked> Check box to play against phone
-          </label>
-          <label class="inline" style="gap:6px;">
-            Difficulty:
-            <select id="ttt-diff">
-              <option value="easy">Easy</option>
-              <option value="normal" selected>Normal</option>
-              <option value="hard">Hard</option>
-              <option value="unbeatable">Unbeatable</option>
-            </select>
-          </label>
-        </div>
-      </div>
-
-      <!-- Doodle Pad -->
-      <div class="doodle">
-        <h2>Doodle Pad</h2>
-        <div class="note">Make a little art while you charge.</div>
-        <div class="doodle-controls">
-          <label>Color <input type="color" id="drawColor" value="#111111"></label>
-          <label>Size <input type="range" id="drawSize" min="1" max="24" value="6"></label>
-          <button class="btn" id="undoDraw">Undo</button>
-          <button class="btn" id="clearDraw">Clear</button>
-          <button class="btn" id="saveDraw">Save PNG</button>
-        </div>
-        <div class="doodle-canvas-wrap">
-          <canvas id="drawCanvas" width="320" height="240"></canvas>
-        </div>
-      </div>
-
     </div>
   </div>
 
 <script>
 (function(){
-  // ===== Calculator with swap =====
   const miles  = document.getElementById('miles');
   const milesLabel = document.getElementById('milesLabel');
   const buffer = document.getElementById('buffer');
@@ -188,22 +115,18 @@
   const forwardText = document.getElementById('forwardText');
   const reverseText = document.getElementById('reverseText');
 
-  // Restore saved values or defaults
   const saved = JSON.parse(localStorage.getItem('ariyacalc') || '{}');
-  if (saved.miles  != null) miles.value  = saved.miles; // else blank
+  if (saved.miles  != null) miles.value  = saved.miles;
   if (saved.buffer != null) buffer.value = saved.buffer; else buffer.value = 10;
   if (saved.eff    != null) effInp.value = saved.eff;    else effInp.value = 2.5;
 
-  let reverse = saved.mode === 'reverse'; // false = Miles→%, true = %→Miles
+  let reverse = saved.mode === 'reverse';
   updateModeUI();
-
-  function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
 
   function compute(){
     const buf = Number(buffer.value || 0);
     const eff = Number(effInp.value || 2.5);
 
-    // Persist common stuff
     localStorage.setItem('ariyacalc', JSON.stringify({
       miles: miles.value === "" ? "" : Number(miles.value),
       buffer: buf,
@@ -212,7 +135,6 @@
     }));
 
     if (!reverse){
-      // FORWARD: miles -> %
       const m = (miles.value === "" ? NaN : Number(miles.value));
       if (isNaN(m)) {
         pctOut.textContent = "--%";
@@ -222,12 +144,10 @@
       let pct = (m + buf) / eff;
       pct = Math.ceil(pct);
       const exceeds = pct > 100;
-      // Keep % visible even above 100 (no clamp)
       pctOut.textContent = pct + "%";
       if (exceeds) { card.classList.add('danger'); cap.style.display = "block"; }
       else { card.classList.remove('danger'); cap.style.display = "none"; }
     } else {
-      // REVERSE: % -> miles
       const p = (miles.value === "" ? NaN : Number(miles.value));
       if (isNaN(p)) {
         milesOut.textContent = "--";
@@ -236,24 +156,19 @@
       }
       const mOut = Math.max(0, Math.floor((p * eff) - buf));
       milesOut.textContent = mOut;
-      // No danger styling/warning in reverse mode
       card.classList.remove('danger'); cap.style.display = "none";
     }
   }
 
   function updateModeUI(){
     if (!reverse){
-      // Miles → %
       swapBtn.textContent = "Swap: miles → %";
-      swapBtn.setAttribute('aria-pressed', 'false');
       milesLabel.textContent = "Trip distance (miles)";
       miles.placeholder = "e.g., 120";
       forwardText.style.display = "";
       reverseText.style.display = "none";
     } else {
-      // % → Miles
       swapBtn.textContent = "Swap: % → miles";
-      swapBtn.setAttribute('aria-pressed', 'true');
       milesLabel.textContent = "Charge % available";
       miles.placeholder = "e.g., 65";
       forwardText.style.display = "none";
@@ -270,210 +185,6 @@
   [miles, buffer, effInp].forEach(el => el.addEventListener('input', compute));
   chips.forEach(btn => btn.addEventListener('click', () => { effInp.value = btn.dataset.eff; compute(); }));
   compute();
-
-  // ===== Tic-Tac-Toe with difficulty (unchanged from your last version) =====
-  const boardEl  = document.getElementById('board');
-  const statusEl = document.getElementById('ttt-status');
-  const newBtn   = document.getElementById('ttt-new');
-  const vsAi     = document.getElementById('ttt-vsai');
-  const diffSel  = document.getElementById('ttt-diff');
-
-  let board = Array(9).fill(null);
-  let turn = 'X';
-  let gameOver = false;
-
-  const lines = [
-    [0,1,2],[3,4,5],[6,7,8],
-    [0,3,6],[1,4,7],[2,5,8],
-    [0,4,8],[2,4,6]
-  ];
-
-  function renderBoard(){
-    boardEl.innerHTML = '';
-    board.forEach((val, i) => {
-    const btn = document.createElement('button');
-      btn.className = 'cell';
-      btn.setAttribute('aria-label', `Cell ${i+1}`);
-      btn.textContent = val ? val : '';
-      btn.disabled = !!val || gameOver;
-      btn.addEventListener('click', () => move(i));
-      boardEl.appendChild(btn);
-    });
-  }
-
-  function winner(b){
-    for (const [a,c,d] of lines){
-      if (b[a] && b[a] === b[c] && b[a] === b[d]) return b[a];
-    }
-    return null;
-  }
-
-  function empties(b){ return b.map((v,i)=>v?null:i).filter(i=>i!==null); }
-
-  function minimax(b, player){
-    const w = winner(b);
-    if (w === 'O') return {score: +1};
-    if (w === 'X') return {score: -1};
-    if (empties(b).length === 0) return {score: 0};
-
-    if (player === 'O'){
-      let best = {score: -Infinity, move: null};
-      for (const i of empties(b)){
-        const copy = b.slice(); copy[i] = 'O';
-        const res = minimax(copy, 'X');
-        if (res.score > best.score) best = {score: res.score, move: i};
-      }
-      return best;
-    } else {
-      let best = {score: +Infinity, move: null};
-      for (const i of empties(b)){
-        const copy = b.slice(); copy[i] = 'X';
-        const res = minimax(copy, 'O');
-        if (res.score < best.score) best = {score: res.score, move: i};
-      }
-      return best;
-    }
-  }
-
-  function heuristicMove(){
-    const me='O', opp='X';
-    const e = empties(board);
-    for (const i of e){ const t=board.slice(); t[i]=me; if (winner(t)===me) return i; }
-    for (const i of e){ const t=board.slice(); t[i]=opp; if (winner(t)===opp) return i; }
-    if (board[4]==null) return 4;
-    const corners=[0,2,6,8].filter(i=>board[i]==null);
-    if (corners.length) return corners[Math.floor(Math.random()*corners.length)];
-    return e[Math.floor(Math.random()*e.length)];
-  }
-
-  function aiMove(){
-    const difficulty = diffSel.value;
-    const e = empties(board);
-    if (e.length===0) return;
-
-    const blunderRates = { easy: 0.5, normal: 0.2, hard: 0.05, unbeatable: 0 };
-    const blunder = Math.random() < blunderRates[difficulty];
-
-    let moveIndex;
-    if (difficulty === 'unbeatable' || !blunder){
-      moveIndex = minimax(board, 'O').move;
-      if (moveIndex == null) moveIndex = heuristicMove();
-    } else {
-      moveIndex = e[Math.floor(Math.random()*e.length)];
-    }
-    if (moveIndex != null) move(moveIndex);
-  }
-
-  function move(i){
-    if (gameOver || board[i]) return;
-    board[i] = turn;
-
-    const w = winner(board);
-    if (w){ statusEl.textContent = `${w} wins!`; gameOver = true; renderBoard(); return; }
-    if (empties(board).length === 0){ statusEl.textContent = `It's a draw.`; gameOver = true; renderBoard(); return; }
-
-    turn = (turn === 'X') ? 'O' : 'X';
-    statusEl.textContent = `${turn} to move`;
-    renderBoard();
-
-    if (!gameOver && vsAi.checked && turn === 'O'){
-      setTimeout(aiMove, 220);
-    }
-  }
-
-  function resetGame(){
-    board = Array(9).fill(null);
-    turn = 'X';
-    gameOver = false;
-    statusEl.textContent = 'X to move';
-    renderBoard();
-  }
-
-  newBtn.addEventListener('click', resetGame);
-  vsAi.addEventListener('change', resetGame);
-  diffSel.addEventListener('change', resetGame);
-  renderBoard();
-
-  // ===== Doodle Pad =====
-  const canvas = document.getElementById('drawCanvas');
-  const ctx = canvas.getContext('2d');
-  const colorInp = document.getElementById('drawColor');
-  const sizeInp  = document.getElementById('drawSize');
-  const undoBtn  = document.getElementById('undoDraw');
-  const clearBtn = document.getElementById('clearDraw');
-  const saveBtn  = document.getElementById('saveDraw');
-
-  function resizeCanvasForDPR(){
-    const dpr = window.devicePixelRatio || 1;
-    const cssW = canvas.clientWidth || 320;
-    const cssH = canvas.clientHeight || 240;
-    canvas.width  = Math.round(cssW * dpr);
-    canvas.height = Math.round(cssH * dpr);
-    ctx.scale(dpr, dpr);
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0,0,cssW,cssH);
-  }
-  canvas.style.width = canvas.width + 'px';
-  canvas.style.height = canvas.height + 'px';
-  resizeCanvasForDPR();
-
-  let drawing = false, last = null, history = [];
-  const MAX_HISTORY = 20;
-
-  function pushHistory(){
-    try{
-      const img = ctx.getImageData(0,0,canvas.width,canvas.height);
-      history.push(img);
-      if (history.length > MAX_HISTORY) history.shift();
-    }catch(e){}
-  }
-  function startDraw(pt){ pushHistory(); drawing = true; last = pt; drawTo(pt); }
-  function endDraw(){ drawing = false; last = null; }
-  function drawTo(pt){
-    if (!last){ last = pt; }
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.strokeStyle = colorInp.value; ctx.lineWidth = Number(sizeInp.value);
-    ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(pt.x, pt.y); ctx.stroke();
-    last = pt;
-  }
-  function getPoint(e){
-    const r = canvas.getBoundingClientRect();
-    if (e.touches && e.touches[0]) return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
-  }
-  canvas.addEventListener('mousedown', e => { startDraw(getPoint(e)); });
-  canvas.addEventListener('mousemove', e => { if(drawing) drawTo(getPoint(e)); });
-  window.addEventListener('mouseup', endDraw);
-  canvas.addEventListener('touchstart', e => { e.preventDefault(); startDraw(getPoint(e)); }, {passive:false});
-  canvas.addEventListener('touchmove',  e => { e.preventDefault(); if(drawing) drawTo(getPoint(e)); }, {passive:false});
-  canvas.addEventListener('touchend',   e => { e.preventDefault(); endDraw(); }, {passive:false});
-
-  undoBtn.addEventListener('click', () => {
-    const img = history.pop();
-    if (img){
-      const dpr = window.devicePixelRatio || 1;
-      ctx.setTransform(1,0,0,1,0,0);
-      ctx.putImageData(img, 0, 0);
-      ctx.setTransform(dpr,0,0,dpr,0,0);
-    }
-  });
-  clearBtn.addEventListener('click', () => {
-    const dpr = window.devicePixelRatio || 1;
-    ctx.setTransform(1,0,0,1,0,0);
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle = '#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-  });
-  saveBtn.addEventListener('click', () => {
-    const dpr = window.devicePixelRatio || 1;
-    ctx.setTransform(1,0,0,1,0,0);
-    const link = document.createElement('a');
-    link.download = 'doodle.png';
-    link.href = canvas.toDataURL('image/png');
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-    link.click();
-  });
-  window.addEventListener('orientationchange', () => setTimeout(resizeCanvasForDPR, 250));
 })();
 </script>
 </body>
